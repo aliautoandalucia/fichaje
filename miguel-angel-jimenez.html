@@ -31,7 +31,8 @@
   .btn-pausa    { background: #f59e0b; color: #000; }
   .btn-finpausa { background: #38bdf8; color: #000; }
   .btn-salida   { background: #ef4444; color: #fff; }
-  .btn-ausencia { background: #a78bfa; color: #000; grid-column: 1 / -1; padding: 14px; }
+  .btn-ausencia { background: #a78bfa; color: #000; }
+  .btn-vacaciones { background: #06b6d4; color: #000; grid-column: 1 / -1; padding: 14px; }
   .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
   .overlay {
     display: none; position: fixed; inset: 0;
@@ -43,6 +44,7 @@
     background: #162032; border-radius: 20px 20px 0 0;
     padding: 24px 20px 36px; width: 100%; max-width: 400px;
     border-top: 1px solid rgba(255,255,255,0.1);
+    max-height: 85vh; overflow-y: auto;
   }
   .modal-title { font-size: 14px; font-weight: 700; color: #94a3b8; text-align: center; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
   .motivo-btn {
@@ -67,12 +69,35 @@
     border-radius: 10px; padding: 12px; color: #64748b;
     font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px;
   }
+  /* Vacaciones modal */
+  .vac-campo { margin-bottom: 16px; }
+  .vac-campo label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 8px; }
+  .vac-campo input[type="date"] {
+    width: 100%; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 14px 16px; color: #e2e8f0; font-size: 16px;
+    outline: none; font-family: inherit;
+  }
+  .vac-campo input[type="date"]:focus { border-color: #06b6d4; }
+  .vac-resumen {
+    background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3);
+    border-radius: 12px; padding: 14px; text-align: center;
+    font-size: 14px; color: #67e8f9; margin-bottom: 16px; display: none;
+  }
+  .vac-resumen.show { display: block; }
+  .vac-resumen .dias { font-size: 26px; font-weight: 800; color: #06b6d4; }
+  .btn-enviar-vac {
+    width: 100%; background: #06b6d4; color: #000; border: none;
+    border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 800;
+    cursor: pointer; font-family: inherit; margin-bottom: 8px;
+  }
+  .btn-enviar-vac:disabled { opacity: 0.4; }
   .toast {
     position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
     background: #162032; border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px; padding: 14px 24px; font-size: 14px;
     font-weight: 600; opacity: 0; transition: opacity 0.3s;
-    pointer-events: none; white-space: nowrap; text-align: center;
+    pointer-events: none; text-align: center; max-width: 90%;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 200;
   }
   .toast.show { opacity: 1; }
@@ -90,46 +115,69 @@
 </head>
 <body>
 
-<div class="empresa">&#127970; Taller Auto Andalucia</div>
+<div class="empresa">🏢 Taller Auto Andalucia</div>
 <div class="nombre">Miguel Angel Jimenez</div>
 <div class="reloj" id="reloj">--:--:--</div>
 
 <div class="grid">
-  <button class="btn btn-entrada"  onclick="fichar('ENTRADA',null)"><span class="icon">&#9654;</span>ENTRADA</button>
-  <button class="btn btn-salida"   onclick="fichar('SALIDA',null)"><span class="icon">&#9632;</span>SALIDA</button>
-  <button class="btn btn-pausa"    onclick="abrirModal('pausa')"><span class="icon">&#9208;</span>PAUSA</button>
-  <button class="btn btn-finpausa" onclick="fichar('FIN PAUSA',null)"><span class="icon">&#9654;</span>FIN PAUSA</button>
-  <button class="btn btn-ausencia" onclick="abrirModal('ausencia')"><span class="icon">&#128203;</span>AUSENCIA DEL DÍA</button>
+  <button class="btn btn-entrada"  onclick="fichar('ENTRADA',null)"><span class="icon">▶</span>ENTRADA</button>
+  <button class="btn btn-salida"   onclick="fichar('SALIDA',null)"><span class="icon">■</span>SALIDA</button>
+  <button class="btn btn-pausa"    onclick="abrirModal('pausa')"><span class="icon">⏸</span>PAUSA</button>
+  <button class="btn btn-finpausa" onclick="fichar('FIN PAUSA',null)"><span class="icon">▶</span>FIN PAUSA</button>
+  <button class="btn btn-ausencia" onclick="abrirModal('ausencia')"><span class="icon">📋</span>AUSENCIA</button>
+  <button class="btn btn-vacaciones" onclick="abrirModal('vacaciones')"><span class="icon">🏖</span>SOLICITAR VACACIONES</button>
 </div>
 
 <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
 <div class="toast" id="toast"></div>
 
+<!-- Modal pausa -->
 <div class="overlay" id="modal-pausa">
   <div class="modal">
-    <div class="modal-title">Motivo de la pausa</div>
-    <button class="motivo-btn" onclick="fichar('PAUSA','Desayuno')"><span class="micon">&#9749;</span> Desayuno</button>
-    <button class="motivo-btn" onclick="fichar('PAUSA','Medico')"><span class="micon">&#127973;</span> Médico</button>
-    <button class="motivo-btn" onclick="fichar('PAUSA','Motivo de trabajo')"><span class="micon">&#128295;</span> Motivo de trabajo</button>
+    <div class="modal-title">⏸ Motivo de la pausa</div>
+    <button class="motivo-btn" onclick="fichar('PAUSA','Desayuno')"><span class="micon">☕</span> Desayuno</button>
+    <button class="motivo-btn" onclick="fichar('PAUSA','Medico')"><span class="micon">🏥</span> Médico</button>
+    <button class="motivo-btn" onclick="fichar('PAUSA','Motivo de trabajo')"><span class="micon">🔧</span> Motivo de trabajo</button>
     <div class="motivo-otro-wrap">
       <input type="text" id="otro-pausa" placeholder="Otro motivo... (escribe aqui)" />
-      <button class="motivo-btn" onclick="ficharOtro('PAUSA','otro-pausa')"><span class="micon">&#9999;</span> Otro motivo</button>
+      <button class="motivo-btn" onclick="ficharOtro('PAUSA','otro-pausa')"><span class="micon">✏️</span> Otro motivo</button>
     </div>
     <button class="btn-cancelar" onclick="cerrarModal('modal-pausa')">Cancelar</button>
   </div>
 </div>
 
+<!-- Modal ausencia -->
 <div class="overlay" id="modal-ausencia">
   <div class="modal">
-    <div class="modal-title">Motivo de la ausencia</div>
-    <button class="motivo-btn" onclick="fichar('AUSENCIA','Vacaciones')"><span class="micon">&#127958;</span> Vacaciones</button>
-    <button class="motivo-btn" onclick="fichar('AUSENCIA','Baja medica')"><span class="micon">&#129298;</span> Baja médica</button>
-    <button class="motivo-btn" onclick="fichar('AUSENCIA','Asunto propio')"><span class="micon">&#128203;</span> Asunto propio</button>
+    <div class="modal-title">📋 Motivo de la ausencia</div>
+    <button class="motivo-btn" onclick="fichar('AUSENCIA','Baja medica')"><span class="micon">🤒</span> Baja médica</button>
+    <button class="motivo-btn" onclick="fichar('AUSENCIA','Asunto propio')"><span class="micon">📋</span> Asunto propio</button>
     <div class="motivo-otro-wrap">
       <input type="text" id="otro-ausencia" placeholder="Otro motivo... (escribe aqui)" />
-      <button class="motivo-btn" onclick="ficharOtro('AUSENCIA','otro-ausencia')"><span class="micon">&#9999;</span> Otro motivo</button>
+      <button class="motivo-btn" onclick="ficharOtro('AUSENCIA','otro-ausencia')"><span class="micon">✏️</span> Otro motivo</button>
     </div>
     <button class="btn-cancelar" onclick="cerrarModal('modal-ausencia')">Cancelar</button>
+  </div>
+</div>
+
+<!-- Modal vacaciones -->
+<div class="overlay" id="modal-vacaciones">
+  <div class="modal">
+    <div class="modal-title">🏖 Solicitar vacaciones</div>
+    <div class="vac-campo">
+      <label>📅 Fecha de inicio</label>
+      <input type="date" id="vac-inicio" onchange="calcularVac()" />
+    </div>
+    <div class="vac-campo">
+      <label>📅 Fecha de fin</label>
+      <input type="date" id="vac-fin" onchange="calcularVac()" />
+    </div>
+    <div class="vac-resumen" id="vac-resumen">
+      <div class="dias" id="vac-numDias">0</div>
+      días solicitados
+    </div>
+    <button class="btn-enviar-vac" id="btn-enviar-vac" onclick="solicitarVac()" disabled>Enviar solicitud</button>
+    <button class="btn-cancelar" onclick="cerrarModal('modal-vacaciones')">Cancelar</button>
   </div>
 </div>
 
@@ -168,11 +216,8 @@
       .then(res => {
         document.getElementById('spinner').classList.remove('show');
         btns.forEach(b => b.disabled = false);
-        if (res.ok) {
-          mostrarToast('Fichaje registrado a las ' + res.hora, 'ok');
-        } else {
-          mostrarToast('Error: ' + (res.msg||'intentalo de nuevo'), 'err');
-        }
+        if (res.ok) mostrarToast('Fichaje registrado a las ' + res.hora, 'ok');
+        else mostrarToast('Error: ' + (res.msg||'intentalo de nuevo'), 'err');
       })
       .catch(() => {
         document.getElementById('spinner').classList.remove('show');
@@ -181,10 +226,64 @@
       });
   }
 
+  // ── Vacaciones ──
+  function calcularVac() {
+    const ini = document.getElementById('vac-inicio').value;
+    const fin = document.getElementById('vac-fin').value;
+    const btn = document.getElementById('btn-enviar-vac');
+    const resumen = document.getElementById('vac-resumen');
+    if (ini && fin) {
+      const d1 = new Date(ini), d2 = new Date(fin);
+      if (d2 < d1) {
+        mostrarToast('La fecha de fin no puede ser anterior al inicio', 'err');
+        resumen.classList.remove('show'); btn.disabled = true; return;
+      }
+      const dias = Math.round((d2 - d1) / 86400000) + 1;
+      document.getElementById('vac-numDias').textContent = dias;
+      resumen.classList.add('show'); btn.disabled = false;
+    } else {
+      resumen.classList.remove('show'); btn.disabled = true;
+    }
+  }
+
+  function formatES(iso) {
+    const [y,m,d] = iso.split('-');
+    return d + '/' + m + '/' + y;
+  }
+
+  function solicitarVac() {
+    const ini = document.getElementById('vac-inicio').value;
+    const fin = document.getElementById('vac-fin').value;
+    if (!ini || !fin) return;
+    const dias = document.getElementById('vac-numDias').textContent;
+    document.getElementById('btn-enviar-vac').disabled = true;
+    cerrarModal('modal-vacaciones');
+    document.getElementById('spinner').classList.add('show');
+
+    const url = SCRIPT_URL + '?accion=vacaciones&id=' + ID_KEY +
+      '&inicio=' + encodeURIComponent(formatES(ini)) +
+      '&fin=' + encodeURIComponent(formatES(fin)) + '&dias=' + dias;
+
+    fetch(url).then(r => r.json()).then(res => {
+      document.getElementById('spinner').classList.remove('show');
+      if (res.ok) {
+        mostrarToast('✅ Solicitud enviada. Pendiente de aprobacion.', 'ok');
+        document.getElementById('vac-inicio').value = '';
+        document.getElementById('vac-fin').value = '';
+        document.getElementById('vac-resumen').classList.remove('show');
+      } else {
+        mostrarToast('Error: ' + (res.msg||'intentalo de nuevo'), 'err');
+      }
+    }).catch(() => {
+      document.getElementById('spinner').classList.remove('show');
+      mostrarToast('Error de conexion', 'err');
+    });
+  }
+
   function mostrarToast(msg, tipo) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.className = 'toast show ' + tipo;
-    setTimeout(() => t.className = 'toast', 3500);
+    setTimeout(() => t.className = 'toast', 4000);
   }
 </script>
 </body>
