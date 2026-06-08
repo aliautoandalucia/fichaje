@@ -69,7 +69,6 @@
     border-radius: 10px; padding: 12px; color: #64748b;
     font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px;
   }
-  /* Vacaciones modal */
   .vac-campo { margin-bottom: 16px; }
   .vac-campo label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 8px; }
   .vac-campo input[type="date"] {
@@ -103,6 +102,7 @@
   .toast.show { opacity: 1; }
   .toast.ok  { border-color: #22c55e; color: #22c55e; }
   .toast.err { border-color: #ef4444; color: #ef4444; }
+  .toast.wait { border-color: #f59e0b; color: #f59e0b; }
   .spinner { display:none; margin-top:20px; }
   .spinner.show { display:block; }
   .spinner-ring {
@@ -111,6 +111,7 @@
     animation:spin .8s linear infinite; margin: 0 auto;
   }
   @keyframes spin { to { transform:rotate(360deg) } }
+  .estado-envio { font-size: 12px; color: #64748b; margin-top: 10px; min-height: 16px; text-align:center; }
 </style>
 </head>
 <body>
@@ -129,9 +130,9 @@
 </div>
 
 <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
+<div class="estado-envio" id="estadoEnvio"></div>
 <div class="toast" id="toast"></div>
 
-<!-- Modal pausa -->
 <div class="overlay" id="modal-pausa">
   <div class="modal">
     <div class="modal-title">⏸ Motivo de la pausa</div>
@@ -146,7 +147,6 @@
   </div>
 </div>
 
-<!-- Modal ausencia -->
 <div class="overlay" id="modal-ausencia">
   <div class="modal">
     <div class="modal-title">📋 Motivo de la ausencia</div>
@@ -160,7 +160,6 @@
   </div>
 </div>
 
-<!-- Modal vacaciones -->
 <div class="overlay" id="modal-vacaciones">
   <div class="modal">
     <div class="modal-title">🏖 Solicitar vacaciones</div>
@@ -206,24 +205,67 @@
     fichar(tipo, motivo);
   }
 
+  // Hora exacta del movil en formato dd/MM/yyyy HH:mm:ss
+  function horaMovil() {
+    const d = new Date(), p = n => String(n).padStart(2,'0');
+    return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+
+           p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+
+  // Envia con reintentos automaticos (hasta 4 intentos)
   function enviar(tipo, obs) {
     const btns = document.querySelectorAll('.btn');
     btns.forEach(b => b.disabled = true);
     document.getElementById('spinner').classList.add('show');
 
-    fetch(SCRIPT_URL + '?id=' + ID_KEY + '&tipo=' + encodeURIComponent(tipo) + '&obs=' + encodeURIComponent(obs))
-      .then(r => r.json())
-      .then(res => {
-        document.getElementById('spinner').classList.remove('show');
-        btns.forEach(b => b.disabled = false);
-        if (res.ok) mostrarToast('Fichaje registrado a las ' + res.hora, 'ok');
-        else mostrarToast('Error: ' + (res.msg||'intentalo de nuevo'), 'err');
-      })
-      .catch(() => {
-        document.getElementById('spinner').classList.remove('show');
-        btns.forEach(b => b.disabled = false);
-        mostrarToast('Error de conexion', 'err');
-      });
+    const hm = horaMovil(); // hora real del clic, se mantiene en los reintentos
+    const horaCorta = hm.substring(11,16);
+    let intento = 0;
+    const maxIntentos = 4;
+
+    function intentarEnvio() {
+      intento++;
+      if (intento > 1) {
+        document.getElementById('estadoEnvio').textContent = 'Reintentando... (' + intento + '/' + maxIntentos + ')';
+      }
+
+      const url = SCRIPT_URL + '?id=' + ID_KEY +
+        '&tipo=' + encodeURIComponent(tipo) +
+        '&obs=' + encodeURIComponent(obs) +
+        '&hm=' + encodeURIComponent(hm);
+
+      // Timeout manual de 12 segundos por intento
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 12000);
+
+      fetch(url, { signal: ctrl.signal })
+        .then(r => r.json())
+        .then(res => {
+          clearTimeout(tid);
+          if (res.ok) {
+            finalizar(true, 'Fichaje registrado a las ' + (res.hora || horaCorta));
+          } else {
+            finalizar(false, 'Error: ' + (res.msg || 'intentalo de nuevo'));
+          }
+        })
+        .catch(() => {
+          clearTimeout(tid);
+          if (intento < maxIntentos) {
+            setTimeout(intentarEnvio, 1500); // esperar 1.5s y reintentar
+          } else {
+            finalizar(false, 'No se pudo conectar. Comprueba tu conexion y vuelve a intentarlo.');
+          }
+        });
+    }
+
+    function finalizar(ok, msg) {
+      document.getElementById('spinner').classList.remove('show');
+      document.getElementById('estadoEnvio').textContent = '';
+      btns.forEach(b => b.disabled = false);
+      mostrarToast((ok ? '✅ ' : '❌ ') + msg, ok ? 'ok' : 'err');
+    }
+
+    intentarEnvio();
   }
 
   // ── Vacaciones ──
@@ -276,14 +318,14 @@
       }
     }).catch(() => {
       document.getElementById('spinner').classList.remove('show');
-      mostrarToast('Error de conexion', 'err');
+      mostrarToast('Error de conexion al solicitar', 'err');
     });
   }
 
   function mostrarToast(msg, tipo) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.className = 'toast show ' + tipo;
-    setTimeout(() => t.className = 'toast', 4000);
+    setTimeout(() => t.className = 'toast', 4500);
   }
 </script>
 </body>
