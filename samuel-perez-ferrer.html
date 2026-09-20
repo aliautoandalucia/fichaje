@@ -112,6 +112,13 @@
   }
   @keyframes spin { to { transform:rotate(360deg) } }
   .estado-envio { font-size: 12px; color: #64748b; margin-top: 10px; min-height: 16px; text-align:center; }
+  .aviso-pendiente {
+    display:none; width:100%; max-width:320px; margin:0 0 16px;
+    background:#7f1d1d; border:1px solid #ef4444; border-radius:12px;
+    padding:14px 16px; font-size:13px; line-height:1.5; color:#fecaca; text-align:center;
+  }
+  .aviso-pendiente.show { display:block; }
+  .aviso-pendiente strong { color:#fff; display:block; margin-bottom:4px; font-size:14px; }
 </style>
 </head>
 <body>
@@ -119,6 +126,11 @@
 <div class="empresa">🏢 Auto Cristales Andalucia</div>
 <div class="nombre">Samuel Perez Ferrer</div>
 <div class="reloj" id="reloj">--:--:--</div>
+
+<div class="aviso-pendiente" id="avisoPendiente">
+  <strong>⚠️ Fichaje incompleto</strong>
+  <span id="avisoTexto"></span>
+</div>
 
 <div class="grid">
   <button class="btn btn-entrada"  onclick="fichar('ENTRADA',null)"><span class="icon">▶</span>ENTRADA</button>
@@ -183,6 +195,7 @@
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqVO0eAFmiL_z876Jt-EzwMnlkxYXOnlAAwg--taPRblMO6XpPEHyvmZwbtgkY-4y9/exec";
   const ID_KEY = "samuel-perez-ferrer";
+  const CLAVE_APP = "mg-64ifgkrxy7rhypvm9wep";
 
   function tick() {
     const d = new Date(), p = n => String(n).padStart(2,'0');
@@ -229,7 +242,7 @@
         document.getElementById('estadoEnvio').textContent = 'Reintentando... (' + intento + '/' + maxIntentos + ')';
       }
 
-      const url = SCRIPT_URL + '?id=' + ID_KEY +
+      const url = SCRIPT_URL + '?k=' + CLAVE_APP + '&id=' + ID_KEY +
         '&tipo=' + encodeURIComponent(tipo) +
         '&obs=' + encodeURIComponent(obs) +
         '&hm=' + encodeURIComponent(hm);
@@ -302,7 +315,7 @@
     cerrarModal('modal-vacaciones');
     document.getElementById('spinner').classList.add('show');
 
-    const url = SCRIPT_URL + '?accion=vacaciones&id=' + ID_KEY +
+    const url = SCRIPT_URL + '?k=' + CLAVE_APP + '&accion=vacaciones&id=' + ID_KEY +
       '&inicio=' + encodeURIComponent(formatES(ini)) +
       '&fin=' + encodeURIComponent(formatES(fin)) + '&dias=' + dias;
 
@@ -321,6 +334,22 @@
       mostrarToast('Error de conexion al solicitar', 'err');
     });
   }
+
+
+  // Comprobar si quedo algun dia sin fichar la salida
+  function comprobarPendiente() {
+    fetch(SCRIPT_URL + '?k=' + CLAVE_APP + '&accion=estado&id=' + ID_KEY)
+      .then(r => r.json())
+      .then(res => {
+        if (res.ok && res.pendiente) {
+          document.getElementById('avisoTexto').textContent =
+            'El ' + res.dia + ' no fichaste la salida. Avisa a tu responsable para que lo corrija.';
+          document.getElementById('avisoPendiente').classList.add('show');
+        }
+      })
+      .catch(() => {});
+  }
+  comprobarPendiente();
 
   function mostrarToast(msg, tipo) {
     const t = document.getElementById('toast');
